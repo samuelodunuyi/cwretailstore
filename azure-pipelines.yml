@@ -3,11 +3,16 @@ trigger:
     include:
       - main
 
+variables:
+  BUILD_FOLDER: 'dist'   # <-- Vite uses 'dist'. Change to 'build' for CRA.
+
 pool:
   name: Default
 
 steps:
   # 1️⃣ Use Node.js
+  - checkout: self
+    fetchDepth: 1
   - task: NodeTool@0
     inputs:
       versionSpec: '22.x'
@@ -19,6 +24,11 @@ steps:
       npm run build
     displayName: 'Install and build React app'
 
+  - powershell: |
+      Write-Host "=== Debug: list $(Build.SourcesDirectory) ==="
+      Get-ChildItem -Path "$(Build.SourcesDirectory)" -Force -Recurse -Depth 2 | Format-Table -AutoSize
+    displayName: 'List repo contents after build (debug)'
+    
   # 3️⃣ Archive build output
   - task: ArchiveFiles@2
     inputs:
