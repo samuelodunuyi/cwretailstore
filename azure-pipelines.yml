@@ -1,4 +1,3 @@
-# azure-pipelines.yml
 trigger:
   branches:
     include:
@@ -8,27 +7,33 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
+  # 1️⃣ Use Node.js
   - task: NodeTool@0
     inputs:
-      versionSpec: '18.x'
-    displayName: 'Use Node.js 18'
+      versionSpec: '22.x'
+    displayName: 'Use Node.js 22'
 
+  # 2️⃣ Install dependencies and build React app
   - script: |
-      npm install
+      npm ci
       npm run build
-    displayName: 'Build React app'
+    displayName: 'Install and build React app'
 
+  # 3️⃣ Archive build output
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: 'build'
+      rootFolderOrFile: '$(System.DefaultWorkingDirectory)/build'
       includeRootFolder: false
       archiveType: 'zip'
       archiveFile: '$(Build.ArtifactStagingDirectory)/build.zip'
+      replaceExistingArchive: true
     displayName: 'Archive build folder'
 
+  # 4️⃣ Deploy to Azure App Service
   - task: AzureWebApp@1
     inputs:
-      azureSubscription: 'azure-connection'    # name of your service connection
-      appName: 'cwretailfe'         # e.g., cwretail-react
+      azureSubscription: 'azure-connection'  # Name of your Service Connection
+      appName: 'cwretailfe'                  # Your App Service name
       package: '$(Build.ArtifactStagingDirectory)/build.zip'
-    displayName: 'Deploy to Azure App Service'
+      runtimeStack: 'NODE|22-lts'
+    displayName: 'Deploy React app to Azure Web App'
