@@ -4,46 +4,51 @@ trigger:
       - main
 
 variables:
-  BUILD_FOLDER: 'dist'   # <-- Vite uses 'dist'. Change to 'build' for CRA.
+  BUILD_FOLDER: 'dist'   # <-- Vite => 'dist'. If CRA, change to 'build'.
 
 pool:
-  name: Default
+  name: Default   # <-- make sure this matches the exact agent pool name where your agent is Online
 
 steps:
-  # 1️⃣ Use Node.js
-  - checkout: self
-    fetchDepth: 1
-  - task: NodeTool@0
-    inputs:
-      versionSpec: '22.x'
-    displayName: 'Use Node.js 22'
+- checkout: self
+  fetchDepth: 1
 
-  # 2️⃣ Install dependencies and build React app
-  - script: |
-      npm ci
-      npm run build
-    displayName: 'Install and build React app'
+- task: NodeTool@0
+  inputs:
+    versionSpec: '22.x'
+  displayName: 'Use Node.js 22'
 
-  - powershell: |
-      Write-Host "=== Debug: list $(Build.SourcesDirectory) ==="
-      Get-ChildItem -Path "$(Build.SourcesDirectory)" -Force -Recurse -Depth 2 | Format-Table -AutoSize
-    displayName: 'List repo contents after build (debug)'
-    
-  # 3️⃣ Archive build output
-  - task: ArchiveFiles@2
-    inputs:
-      rootFolderOrFile: '$(System.DefaultWorkingDirectory)/build'
-      includeRootFolder: false
-      archiveType: 'zip'
-      archiveFile: '$(Build.ArtifactStagingDirectory)/build.zip'
-      replaceExistingArchive: true
-    displayName: 'Archive build folder'
+- script: |
+    npm ci
+    npm run build
+  displayName: 'Install and build React app'
 
-  # 4️⃣ Deploy to Azure App Service
-  - task: AzureWebApp@1
-    inputs:
-      azureSubscription: 'azure-connection'  # Name of your Service Connection
-      appName: 'cwretailfe'                  # Your App Service name
-      package: '$(Build.ArtifactStagingDirectory)/build.zip'
-      runtimeStack: 'NODE|22-lts'
-    displayName: 'Deploy React app to Azure Web App'
+- powershell: |
+    Write-Host "=== Debug: list the build output directory ==="
+    $folder = "$(System.DefaultWorkingDirectory)\$(BUILD_FOLDER)"
+    Write-Host "Archive target: $folder"
+    if (Test-Path $folder) {
+      Get-ChildItem -Path $folder -Recurse -Depth 2 | Format-Table -AutoSize
+    } else {
+      Write-Host "ERROR: build output folder not found: $folder"
+      Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Force -Recurse -Depth 1 | Format-Table -AutoSize
+      exit 1
+    }
+  displayName: 'List repo contents after build (debug)'
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(System.DefaultWorkingDirectory)/$(BUILD_FOLDER)'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/build.zip'
+    replaceExistingArchive: true
+  displayName: 'Archive build folder'
+
+- task: AzureWebApp@1
+  inputs:
+    azureSubscription: 'azure-connection'  # <-- your Service Connection name
+    appName: 'cwretailfe'                  # <-- your App Service name
+    package: '$(Build.ArtifactStagingDirectory)/build.zip'
+    runtimeStack: 'NODE|22-lts'
+  displayName: 'Deploy to Azure Web App'
